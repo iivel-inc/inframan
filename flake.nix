@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    terranix.url = "https://flakehub.com/f/terranix/terranix/*";
+    terranix.url = "github:terranix/terranix";
     colmena.url = "github:zhaofengli/colmena";
   };
   outputs = {self, nixpkgs, terranix, colmena, ...}@inputs:
@@ -17,16 +17,51 @@
       });
     in
     {
+      # Library function to create a runner for a project
+      lib.mkRunner = { system, infraConfig, machineConfig }:
+        let
+          pkgs = import nixpkgs {
+            config.allowUnfree = true;
+            inherit system;
+          };
+
+          # Generate the Terranix JSON configuration
+          terranixConfig = terranix.lib.terranixConfiguration {
+            inherit system;
+            modules = [ infraConfig ];
+          };
+
+          # The inframan Go binary
+          inframanBin = self.packages.${system}.default;
+        in
+        pkgs.writeShellApplication {
+          name = "runner";
+          runtimeInputs = [
+            pkgs.opentofu
+            colmena.packages.${system}.colmena
+            pkgs.nix
+          ];
+          text = ''
+            # Export environment variables for the Go tool
+            export INFRA_CONFIG_JSON="${terranixConfig}"
+            export NIXOS_MODULE_PATH="${machineConfig}"
+
+            # Run the inframan binary with all arguments
+            exec ${inframanBin}/bin/inframan "$@"
+          '';
+        };
+
       packages = forAllDevSystems ({pkgs, system, ...}: {
         default = pkgs.buildGoModule {
           pname = "inframan";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Will be updated on first build
+          vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
           buildInputs = [ pkgs.go ];
           subPackages = [ "cmd/inframan" ];
         };
       });
+
       apps = forAllDevSystems ({pkgs, system, ...}: {
         default = {
           type = "app";
@@ -37,25 +72,18 @@
           program = "${self.packages.${system}.default}/bin/inframan";
         };
       });
+
       devShells = forAllDevSystems ({pkgs, system, ...}: {
         default = pkgs.mkShell {
           inputsFrom = [ self.packages.${system}.default ];
-          packages = with pkgs; [
-            go
-            terraform
-            colmena
-            nix
+          packages = [
+            pkgs.go
+            pkgs.opentofu
+            colmena.packages.${system}.colmena
+            pkgs.nix
           ];
         };
       });
-      # Colmena configuration (can be extended by projects using this flake)
-      colmena = {
-        meta = {
-          nixpkgs = import nixpkgs { system = "x86_64-linux"; };
-        };
-      };
-      # Colmena hive output for direct flake evaluation
-      colmenaHive = colmena.lib.makeHive self.outputs.colmena;
     };
 }
 

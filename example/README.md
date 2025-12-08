@@ -1,0 +1,88 @@
+# Inframan Example
+
+This example demonstrates how to use inframan to provision AWS infrastructure with Terranix/OpenTofu and deploy a NixOS configuration with Colmena.
+
+## Files
+
+- `flake.nix` - Nix flake that uses `inframan.lib.mkRunner`
+- `infrastructure.nix` - Terranix configuration defining AWS resources
+- `machine.nix` - NixOS module to deploy on the provisioned instance
+
+## Prerequisites
+
+1. **AWS credentials** - Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
+2. **SSH key** - Have an SSH public key ready for instance access
+3. **Nix with flakes** - Nix 2.4+ with experimental features enabled
+
+## Usage
+
+### 1. Set up environment
+
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+
+# Create a terraform.tfvars file for the SSH key
+echo 'ssh_public_key = "ssh-ed25519 AAAA... your-key"' > terraform.tfvars
+```
+
+### 2. Edit machine.nix
+
+Add your SSH public key to `users.users.root.openssh.authorizedKeys.keys` in `machine.nix`.
+
+### 3. Provision infrastructure
+
+```bash
+# From the example directory
+nix run . -- infra
+```
+
+This will:
+- Compile `infrastructure.nix` to `config.tf.json` via Terranix
+- Run `tofu init` and `tofu apply`
+- Provision the AWS EC2 instance
+
+### 4. Deploy NixOS configuration
+
+```bash
+nix run . -- deploy
+```
+
+This will:
+- Read the instance IP from `tofu output`
+- Generate an ephemeral `hive.nix` with the target IP
+- Run `colmena apply` to deploy the NixOS configuration
+
+### 5. Verify
+
+After deployment, visit `http://<instance-ip>` to see the nginx welcome page.
+
+## Customization
+
+### Different instance type
+
+Edit `infrastructure.nix`:
+```nix
+variable.instance_type.default = "t3.small";
+```
+
+### Additional services
+
+Add services to `machine.nix`:
+```nix
+services.postgresql.enable = true;
+```
+
+### Multiple instances
+
+Extend `infrastructure.nix` with multiple `aws_instance` resources and update `machine.nix` to configure them differently based on hostname.
+
+## Cleanup
+
+To destroy the infrastructure:
+
+```bash
+cd .runner-workdir
+tofu destroy
+```
+
