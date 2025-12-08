@@ -56,7 +56,7 @@
           pname = "inframan";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          vendorHash = "sha256-eKeUhS2puz6ALb+cQKl7+DGvm9Cl+miZAHX0imf9wdg=";
           buildInputs = [ pkgs.go ];
           subPackages = [ "cmd/inframan" ];
         };
