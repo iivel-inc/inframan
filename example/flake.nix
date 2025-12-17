@@ -16,6 +16,7 @@
         inherit system;
         infraConfig = ./infrastructure.nix;  # Terranix configuration
         machineConfig = ./machine.nix;       # NixOS module for deployment
+        # projectName = "my-project";        # Optional: organize .inframan/<projectName>/ folders
       };
 
       # Convenience alias

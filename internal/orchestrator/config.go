@@ -21,7 +21,19 @@ const (
 
 	// HiveFileName is the name of the colmena hive file
 	HiveFileName = "hive.nix"
+
+	// DefaultProjectName is used when PROJECT_NAME is not set
+	DefaultProjectName = "default"
 )
+
+// GetProjectName returns the project name from environment or default
+func GetProjectName() string {
+	projectName := os.Getenv("PROJECT_NAME")
+	if projectName == "" {
+		return DefaultProjectName
+	}
+	return projectName
+}
 
 // GetInframanDir returns the absolute path to the .inframan directory
 func GetInframanDir() (string, error) {
@@ -32,22 +44,35 @@ func GetInframanDir() (string, error) {
 	return filepath.Join(cwd, InframanDir), nil
 }
 
-// GetTerraformDir returns the absolute path to the terraform subdirectory
-func GetTerraformDir() (string, error) {
+// GetProjectDir returns the absolute path to the project-specific directory
+// Structure: .inframan/<project-name>/
+func GetProjectDir() (string, error) {
 	inframanDir, err := GetInframanDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(inframanDir, TerraformSubdir), nil
+	projectName := GetProjectName()
+	return filepath.Join(inframanDir, projectName), nil
+}
+
+// GetTerraformDir returns the absolute path to the terraform subdirectory
+// Structure: .inframan/<project-name>/terraform/
+func GetTerraformDir() (string, error) {
+	projectDir, err := GetProjectDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(projectDir, TerraformSubdir), nil
 }
 
 // GetColmenaDir returns the absolute path to the colmena subdirectory
+// Structure: .inframan/<project-name>/colmena/
 func GetColmenaDir() (string, error) {
-	inframanDir, err := GetInframanDir()
+	projectDir, err := GetProjectDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(inframanDir, ColmenaSubdir), nil
+	return filepath.Join(projectDir, ColmenaSubdir), nil
 }
 
 // EnsureDir creates a directory if it doesn't exist
@@ -78,4 +103,3 @@ func InitInframanDirs() error {
 
 	return nil
 }
-

@@ -18,7 +18,13 @@
     in
     {
       # Library function to create a runner for a project
-      lib.mkRunner = { system, infraConfig, machineConfig }:
+      # Parameters:
+      #   - system: The system architecture (e.g., "x86_64-linux")
+      #   - infraConfig: Path to the Terranix infrastructure configuration
+      #   - machineConfig: Path to the NixOS machine configuration
+      #   - projectName: (Optional) Name for the project, used to organize .inframan/<projectName>/ folders
+      #                  Defaults to "default" if not specified
+      lib.mkRunner = { system, infraConfig, machineConfig, projectName ? "default" }:
         let
           pkgs = import nixpkgs {
             config.allowUnfree = true;
@@ -45,6 +51,7 @@
             # Export environment variables for the Go tool
             export INFRA_CONFIG_JSON="${terranixConfig}"
             export NIXOS_MODULE_PATH="${machineConfig}"
+            export PROJECT_NAME="${projectName}"
 
             # Run the inframan binary with all arguments
             exec ${inframanBin}/bin/inframan "$@"

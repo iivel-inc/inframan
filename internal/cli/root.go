@@ -15,6 +15,7 @@ and Colmena (NixOS Deployment).
 Environment Variables:
   INFRA_CONFIG_JSON  - Path to the Terranix-generated JSON file
   NIXOS_MODULE_PATH  - Path to the NixOS configuration module
+  PROJECT_NAME       - Project name for organizing .inframan/<project>/ folders (default: "default")
 
 Commands:
   infra  - Build and apply infrastructure using Terraform

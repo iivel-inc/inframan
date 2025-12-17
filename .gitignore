@@ -2,6 +2,9 @@
 result
 inframan
 
+# Inframan generated files
+.inframan/
+
 # Go build artifacts
 *.exe
 *.exe~

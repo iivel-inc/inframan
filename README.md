@@ -93,16 +93,76 @@ nix run . -- deploy
 |----------|-------------|
 | `INFRA_CONFIG_JSON` | Path to Terranix-generated JSON file (set by runner) |
 | `NIXOS_MODULE_PATH` | Path to NixOS configuration module (set by runner) |
+| `PROJECT_NAME` | Project name for organizing .inframan folders (set by runner, defaults to "default") |
 | `AWS_ACCESS_KEY_ID` | AWS credentials for infrastructure provisioning |
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials for infrastructure provisioning |
+
+### Multi-Project Support
+
+Inframan supports managing multiple projects in the same workspace. Each project gets its own isolated directory structure under `.inframan/<project-name>/`:
+
+```
+.inframan/
+├── project-a/
+│   ├── terraform/    # Terraform state for project-a
+│   └── colmena/      # Colmena configs for project-a
+├── project-b/
+│   ├── terraform/    # Terraform state for project-b
+│   └── colmena/      # Colmena configs for project-b
+└── default/          # Default project (when projectName not specified)
+    ├── terraform/
+    └── colmena/
+```
+
+To use multiple projects, specify the `projectName` parameter in `mkRunner`:
+
+```nix
+{
+  outputs = { self, nixpkgs, inframan, ... }: {
+    # Production project
+    apps.x86_64-linux.prod = {
+      type = "app";
+      program = "${inframan.lib.mkRunner {
+        system = "x86_64-linux";
+        infraConfig = ./infra-prod.nix;
+        machineConfig = ./machine-prod.nix;
+        projectName = "production";
+      }}/bin/runner";
+    };
+
+    # Staging project
+    apps.x86_64-linux.staging = {
+      type = "app";
+      program = "${inframan.lib.mkRunner {
+        system = "x86_64-linux";
+        infraConfig = ./infra-staging.nix;
+        machineConfig = ./machine-staging.nix;
+        projectName = "staging";
+      }}/bin/runner";
+    };
+  };
+}
+```
+
+Then run each project independently:
+
+```bash
+# Deploy production
+nix run .#prod -- infra
+nix run .#prod -- deploy
+
+# Deploy staging
+nix run .#staging -- infra
+nix run .#staging -- deploy
+```
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────────────────┐
-│ infrastructure  │────▶│    Terranix     │────▶│  .inframan/terraform/           │
-│     .nix        │     │                 │     │    config.tf.json               │
-└─────────────────┘     └─────────────────┘     └────────────────┬────────────────┘
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────────────────────┐
+│ infrastructure  │────▶│    Terranix     │────▶│  .inframan/<project>/terraform/     │
+│     .nix        │     │                 │     │    config.tf.json                   │
+└─────────────────┘     └─────────────────┘     └────────────────┬────────────────────┘
                                                                   │
                                                                   ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────────────────┐
@@ -118,8 +178,9 @@ nix run . -- deploy
 
 Generated files are stored in:
   .inframan/
-  ├── terraform/    # Terraform state, config.tf.json
-  └── colmena/      # Generated hive.nix
+  └── <project-name>/       # Project-specific directory (default: "default")
+      ├── terraform/        # Terraform state, config.tf.json
+      └── colmena/          # Generated hive.nix
 ```
 
 ## Example

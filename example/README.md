@@ -77,12 +77,41 @@ services.postgresql.enable = true;
 
 Extend `infrastructure.nix` with multiple `aws_instance` resources and update `machine.nix` to configure them differently based on hostname.
 
+### Multiple projects
+
+To manage multiple environments (e.g., staging and production), add the `projectName` parameter to `mkRunner` in `flake.nix`:
+
+```nix
+packages.${system}.staging = inframan.lib.mkRunner {
+  inherit system;
+  infraConfig = ./infrastructure.nix;
+  machineConfig = ./machine.nix;
+  projectName = "staging";
+};
+
+packages.${system}.production = inframan.lib.mkRunner {
+  inherit system;
+  infraConfig = ./infrastructure-prod.nix;
+  machineConfig = ./machine-prod.nix;
+  projectName = "production";
+};
+```
+
+Each project will have its own isolated directory:
+- `.inframan/staging/terraform/` - Staging Terraform state
+- `.inframan/production/terraform/` - Production Terraform state
+
 ## Cleanup
 
 To destroy the infrastructure:
 
 ```bash
-cd .inframan/terraform
+# For default project
+cd .inframan/default/terraform
+terraform destroy
+
+# For named project (e.g., "staging")
+cd .inframan/staging/terraform
 terraform destroy
 ```
 
