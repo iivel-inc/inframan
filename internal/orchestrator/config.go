@@ -103,3 +103,48 @@ func InitInframanDirs() error {
 
 	return nil
 }
+
+// GetAllProjectDirs returns all project directories under .inframan/
+// Each project directory is expected to contain a terraform/ subdirectory
+func GetAllProjectDirs() ([]string, error) {
+	inframanDir, err := GetInframanDir()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if .inframan directory exists
+	if _, err := os.Stat(inframanDir); os.IsNotExist(err) {
+		return nil, nil // No projects yet
+	}
+
+	entries, err := os.ReadDir(inframanDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read inframan directory: %w", err)
+	}
+
+	var projects []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Check if this project has a terraform directory with state
+		terraformDir := filepath.Join(inframanDir, entry.Name(), TerraformSubdir)
+		statePath := filepath.Join(terraformDir, "terraform.tfstate")
+
+		if _, err := os.Stat(statePath); err == nil {
+			projects = append(projects, entry.Name())
+		}
+	}
+
+	return projects, nil
+}
+
+// GetTerraformDirForProject returns the terraform directory for a specific project
+func GetTerraformDirForProject(projectName string) (string, error) {
+	inframanDir, err := GetInframanDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(inframanDir, projectName, TerraformSubdir), nil
+}

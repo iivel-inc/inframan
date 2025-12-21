@@ -129,3 +129,69 @@ func (t *TerraformExecutor) GetTargetIP() (string, error) {
 func (t *TerraformExecutor) GetWorkDir() string {
 	return t.workDir
 }
+
+// InstanceInfo contains information about a provisioned instance
+type InstanceInfo struct {
+	ProjectName string
+	PublicIP    string
+}
+
+// GetOutputForProject retrieves terraform output for a specific project
+func GetOutputForProject(projectName string) (*InstanceInfo, error) {
+	terraformDir, err := GetTerraformDirForProject(projectName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get terraform directory: %w", err)
+	}
+
+	// Check if terraform directory exists
+	if _, err := os.Stat(terraformDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("project %q does not exist", projectName)
+	}
+
+	cmd := exec.Command("terraform", "output", "-json")
+	cmd.Dir = terraformDir
+	cmd.Env = os.Environ()
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("terraform output failed for project %q: %w", projectName, err)
+	}
+
+	var terraformOutput TerraformOutput
+	if err := json.Unmarshal(output, &terraformOutput); err != nil {
+		return nil, fmt.Errorf("failed to parse terraform output: %w", err)
+	}
+
+	if terraformOutput.PublicIP.Value == "" {
+		return nil, fmt.Errorf("public_ip not found in terraform output for project %q", projectName)
+	}
+
+	return &InstanceInfo{
+		ProjectName: projectName,
+		PublicIP:    terraformOutput.PublicIP.Value,
+	}, nil
+}
+
+// GetAllInstances returns instance info for all projects
+func GetAllInstances() ([]*InstanceInfo, error) {
+	projects, err := GetAllProjectDirs()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+
+	if len(projects) == 0 {
+		return nil, nil
+	}
+
+	var instances []*InstanceInfo
+	for _, project := range projects {
+		info, err := GetOutputForProject(project)
+		if err != nil {
+			// Skip projects with errors (might not have public_ip output)
+			continue
+		}
+		instances = append(instances, info)
+	}
+
+	return instances, nil
+}
