@@ -24,7 +24,9 @@
       #   - machineConfig: Path to the NixOS machine configuration
       #   - projectName: (Optional) Name for the project, used to organize .inframan/<projectName>/ folders
       #                  Defaults to "default" if not specified
-      lib.mkRunner = { system, infraConfig, machineConfig, projectName ? "default" }:
+      #   - sshKeyPath: (Optional) Path to SSH private key for deployment and SSH access
+      #                 Can be absolute path or relative to the project root
+      lib.mkRunner = { system, infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null }:
         let
           pkgs = import nixpkgs {
             config.allowUnfree = true;
@@ -39,6 +41,11 @@
 
           # The inframan Go binary
           inframanBin = self.packages.${system}.default;
+
+          # SSH key export line (only if sshKeyPath is provided)
+          sshKeyExport = if sshKeyPath != null
+            then ''export SSH_KEY_PATH="${sshKeyPath}"''
+            else "";
         in
         pkgs.writeShellApplication {
           name = "runner";
@@ -52,6 +59,7 @@
             export INFRA_CONFIG_JSON="${terranixConfig}"
             export NIXOS_MODULE_PATH="${machineConfig}"
             export PROJECT_NAME="${projectName}"
+            ${sshKeyExport}
 
             # Run the inframan binary with all arguments
             exec ${inframanBin}/bin/inframan "$@"

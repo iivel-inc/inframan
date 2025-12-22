@@ -116,9 +116,11 @@ func connectToInstance(target, user, identityFile string) error {
 	// Build SSH command arguments
 	sshArgs := []string{"ssh"}
 
-	// Add identity file if specified
+	// Add identity file if specified, or fall back to SSH_KEY_PATH env var
 	if identityFile != "" {
 		sshArgs = append(sshArgs, "-i", identityFile)
+	} else if sshKeyPath := orchestrator.GetSSHKeyPath(); sshKeyPath != "" {
+		sshArgs = append(sshArgs, "-i", sshKeyPath)
 	}
 
 	// Add common SSH options for convenience

@@ -35,6 +35,11 @@ func GetProjectName() string {
 	return projectName
 }
 
+// GetSSHKeyPath returns the SSH key path from environment, or empty string if not set
+func GetSSHKeyPath() string {
+	return os.Getenv("SSH_KEY_PATH")
+}
+
 // GetInframanDir returns the absolute path to the .inframan directory
 func GetInframanDir() (string, error) {
 	cwd, err := os.Getwd()
