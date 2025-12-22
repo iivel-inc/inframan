@@ -128,11 +128,17 @@ func GetAllProjectDirs() ([]string, error) {
 			continue
 		}
 
-		// Check if this project has a terraform directory with state
+		// Check if this project has been initialized (works with any backend type)
+		// We check for .terraform/ directory (created by terraform init) or config.tf.json
 		terraformDir := filepath.Join(inframanDir, entry.Name(), TerraformSubdir)
-		statePath := filepath.Join(terraformDir, "terraform.tfstate")
+		terraformInitDir := filepath.Join(terraformDir, ".terraform")
+		configPath := filepath.Join(terraformDir, ConfigFileName)
 
-		if _, err := os.Stat(statePath); err == nil {
+		// Project is valid if terraform has been initialized OR config exists
+		_, initErr := os.Stat(terraformInitDir)
+		_, configErr := os.Stat(configPath)
+
+		if initErr == nil || configErr == nil {
 			projects = append(projects, entry.Name())
 		}
 	}
