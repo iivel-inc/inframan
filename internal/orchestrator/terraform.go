@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // TerraformExecutor handles Terraform command execution
@@ -96,10 +97,17 @@ func (t *TerraformExecutor) Destroy() error {
 }
 
 // TerraformOutput represents the structure of terraform output -json
+// Supports both single instance (public_ip) and multiple instances (instances map)
 type TerraformOutput struct {
+	// Legacy single instance output
 	PublicIP struct {
 		Value string `json:"value"`
 	} `json:"public_ip"`
+
+	// Multiple named instances output: { "web-1": "1.2.3.4", "db-1": "5.6.7.8" }
+	Instances struct {
+		Value map[string]string `json:"value"`
+	} `json:"instances"`
 }
 
 // GetTargetIP retrieves the public IP from terraform output
@@ -132,12 +140,21 @@ func (t *TerraformExecutor) GetWorkDir() string {
 
 // InstanceInfo contains information about a provisioned instance
 type InstanceInfo struct {
-	ProjectName string
-	PublicIP    string
+	ProjectName  string
+	InstanceName string // Empty for single-instance projects (legacy public_ip)
+	PublicIP     string
 }
 
-// GetOutputForProject retrieves terraform output for a specific project
-func GetOutputForProject(projectName string) (*InstanceInfo, error) {
+// FullName returns the full identifier for the instance (project/instance or just project)
+func (i *InstanceInfo) FullName() string {
+	if i.InstanceName == "" {
+		return i.ProjectName
+	}
+	return fmt.Sprintf("%s/%s", i.ProjectName, i.InstanceName)
+}
+
+// GetInstancesForProject retrieves all instances for a specific project
+func GetInstancesForProject(projectName string) ([]*InstanceInfo, error) {
 	terraformDir, err := GetTerraformDirForProject(projectName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get terraform directory: %w", err)
@@ -162,14 +179,69 @@ func GetOutputForProject(projectName string) (*InstanceInfo, error) {
 		return nil, fmt.Errorf("failed to parse terraform output: %w", err)
 	}
 
-	if terraformOutput.PublicIP.Value == "" {
-		return nil, fmt.Errorf("public_ip not found in terraform output for project %q", projectName)
+	var instances []*InstanceInfo
+
+	// Check for multiple instances first (instances map)
+	if len(terraformOutput.Instances.Value) > 0 {
+		for name, ip := range terraformOutput.Instances.Value {
+			instances = append(instances, &InstanceInfo{
+				ProjectName:  projectName,
+				InstanceName: name,
+				PublicIP:     ip,
+			})
+		}
+		return instances, nil
 	}
 
-	return &InstanceInfo{
-		ProjectName: projectName,
-		PublicIP:    terraformOutput.PublicIP.Value,
-	}, nil
+	// Fall back to legacy single instance (public_ip)
+	if terraformOutput.PublicIP.Value != "" {
+		instances = append(instances, &InstanceInfo{
+			ProjectName:  projectName,
+			InstanceName: "", // Empty for single instance
+			PublicIP:     terraformOutput.PublicIP.Value,
+		})
+		return instances, nil
+	}
+
+	return nil, fmt.Errorf("no instances found in terraform output for project %q (expected 'instances' map or 'public_ip')", projectName)
+}
+
+// GetInstance retrieves a specific instance by project and optional instance name
+func GetInstance(projectName, instanceName string) (*InstanceInfo, error) {
+	instances, err := GetInstancesForProject(projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no instance name specified
+	if instanceName == "" {
+		if len(instances) == 1 {
+			return instances[0], nil
+		}
+		return nil, fmt.Errorf("project %q has %d instances, specify one: %s", projectName, len(instances), formatInstanceNames(instances))
+	}
+
+	// Find the specific instance
+	for _, inst := range instances {
+		if inst.InstanceName == instanceName {
+			return inst, nil
+		}
+	}
+
+	return nil, fmt.Errorf("instance %q not found in project %q, available: %s", instanceName, projectName, formatInstanceNames(instances))
+}
+
+// formatInstanceNames returns a comma-separated list of instance names
+func formatInstanceNames(instances []*InstanceInfo) string {
+	names := make([]string, len(instances))
+	for i, inst := range instances {
+		if inst.InstanceName == "" {
+			names[i] = "(default)"
+		} else {
+			names[i] = inst.InstanceName
+		}
+	}
+	return fmt.Sprintf("[%s]", strings.Join(names, ", "))
 }
 
 // GetAllInstances returns instance info for all projects
@@ -183,15 +255,15 @@ func GetAllInstances() ([]*InstanceInfo, error) {
 		return nil, nil
 	}
 
-	var instances []*InstanceInfo
+	var allInstances []*InstanceInfo
 	for _, project := range projects {
-		info, err := GetOutputForProject(project)
+		instances, err := GetInstancesForProject(project)
 		if err != nil {
-			// Skip projects with errors (might not have public_ip output)
+			// Skip projects with errors
 			continue
 		}
-		instances = append(instances, info)
+		allInstances = append(allInstances, instances...)
 	}
 
-	return instances, nil
+	return allInstances, nil
 }
