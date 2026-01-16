@@ -28,22 +28,6 @@ func NewColmenaExecutor() (*ColmenaExecutor, error) {
 	return &ColmenaExecutor{workDir: workDir}, nil
 }
 
-// hiveTemplate is the template for generating a dynamic hive.nix
-const hiveTemplate = `{
-  meta = {
-    nixpkgs = import <nixpkgs> { system = "x86_64-linux"; };
-  };
-
-  # Define the node
-  target-node = { ... }: {
-    imports = [ (import %s) ]; # Import the user's module
-    deployment.targetHost = "%s"; # Injected IP
-    deployment.targetUser = "root";
-    deployment.buildOnTarget = true; # Build on remote instance, not locally
-  };
-}
-`
-
 // GenerateHive creates an ephemeral hive.nix with the target IP injected
 func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, error) {
 	// Ensure workdir exists
@@ -57,10 +41,44 @@ func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, err
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
+	// Build SSH options for the hive
+	var sshOptions []string
+	if sshConfigPath := GetSSHConfigPath(); sshConfigPath != "" {
+		sshOptions = append(sshOptions, fmt.Sprintf("-F %s", sshConfigPath))
+	}
+	if sshKeyPath := GetSSHKeyPath(); sshKeyPath != "" {
+		sshOptions = append(sshOptions, fmt.Sprintf("-i %s", sshKeyPath))
+	}
+	// Add convenience option for new hosts
+	sshOptions = append(sshOptions, "-o StrictHostKeyChecking=accept-new")
+
+	// Format SSH options as Nix list
+	sshOptsNix := "[]"
+	if len(sshOptions) > 0 {
+		quotedOpts := make([]string, len(sshOptions))
+		for i, opt := range sshOptions {
+			quotedOpts[i] = fmt.Sprintf("\"%s\"", opt)
+		}
+		sshOptsNix = fmt.Sprintf("[ %s ]", strings.Join(quotedOpts, " "))
+	}
+
 	// Generate the hive content
-	// Escape the path for Nix (wrap in quotes)
 	nixPath := fmt.Sprintf("\"%s\"", absModulePath)
-	hiveContent := fmt.Sprintf(hiveTemplate, nixPath, targetIP)
+	hiveContent := fmt.Sprintf(`{
+  meta = {
+    nixpkgs = import <nixpkgs> { system = "x86_64-linux"; };
+  };
+
+  # Define the node
+  target-node = { ... }: {
+    imports = [ (import %s) ]; # Import the user's module
+    deployment.targetHost = "%s"; # Injected IP
+    deployment.targetUser = "root";
+    deployment.buildOnTarget = true; # Build on remote instance, not locally
+    deployment.sshOptions = %s;
+  };
+}
+`, nixPath, targetIP, sshOptsNix)
 
 	// Write to hive.nix
 	hivePath := filepath.Join(c.workDir, HiveFileName)
@@ -74,16 +92,6 @@ func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, err
 // Apply runs colmena apply with the generated hive
 func (c *ColmenaExecutor) Apply(hivePath string) error {
 	args := []string{"apply", "--on", "target-node", "-f", hivePath}
-
-	// Add SSH config file if SSH_CONFIG_PATH is set (takes precedence)
-	if sshConfigPath := GetSSHConfigPath(); sshConfigPath != "" {
-		args = append(args, "--ssh-config", sshConfigPath)
-	} else if sshKeyPath := GetSSHKeyPath(); sshKeyPath != "" {
-		// Fall back to SSH key option if SSH_KEY_PATH is set
-		args = append(args, "--ssh-option", fmt.Sprintf("IdentityFile=%s", sshKeyPath))
-		// Also disable strict host key checking for new hosts
-		args = append(args, "--ssh-option", "StrictHostKeyChecking=accept-new")
-	}
 
 	cmd := exec.Command("colmena", args...)
 	cmd.Dir = c.workDir
