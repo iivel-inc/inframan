@@ -41,26 +41,23 @@ func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, err
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	// Build SSH options for the hive
+	// Build SSH options for the hive (each argument must be a separate list element)
 	var sshOptions []string
 	if sshConfigPath := GetSSHConfigPath(); sshConfigPath != "" {
-		sshOptions = append(sshOptions, fmt.Sprintf("-F %s", sshConfigPath))
+		sshOptions = append(sshOptions, "-F", sshConfigPath)
 	}
 	if sshKeyPath := GetSSHKeyPath(); sshKeyPath != "" {
-		sshOptions = append(sshOptions, fmt.Sprintf("-i %s", sshKeyPath))
+		sshOptions = append(sshOptions, "-i", sshKeyPath)
 	}
 	// Add convenience option for new hosts
-	sshOptions = append(sshOptions, "-o StrictHostKeyChecking=accept-new")
+	sshOptions = append(sshOptions, "-o", "StrictHostKeyChecking=accept-new")
 
 	// Format SSH options as Nix list
-	sshOptsNix := "[]"
-	if len(sshOptions) > 0 {
-		quotedOpts := make([]string, len(sshOptions))
-		for i, opt := range sshOptions {
-			quotedOpts[i] = fmt.Sprintf("\"%s\"", opt)
-		}
-		sshOptsNix = fmt.Sprintf("[ %s ]", strings.Join(quotedOpts, " "))
+	quotedOpts := make([]string, len(sshOptions))
+	for i, opt := range sshOptions {
+		quotedOpts[i] = fmt.Sprintf("\"%s\"", opt)
 	}
+	sshOptsNix := fmt.Sprintf("[ %s ]", strings.Join(quotedOpts, " "))
 
 	// Generate the hive content
 	nixPath := fmt.Sprintf("\"%s\"", absModulePath)
@@ -98,7 +95,19 @@ func (c *ColmenaExecutor) Apply(hivePath string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	cmd.Env = os.Environ()
+
+	// Build NIX_SSHOPTS for nix-copy-closure (colmena uses this for copying derivations)
+	env := os.Environ()
+	var sshOpts []string
+	if sshConfigPath := GetSSHConfigPath(); sshConfigPath != "" {
+		sshOpts = append(sshOpts, "-F", sshConfigPath)
+	}
+	if sshKeyPath := GetSSHKeyPath(); sshKeyPath != "" {
+		sshOpts = append(sshOpts, "-i", sshKeyPath)
+	}
+	sshOpts = append(sshOpts, "-o", "StrictHostKeyChecking=accept-new")
+	env = append(env, fmt.Sprintf("NIX_SSHOPTS=%s", strings.Join(sshOpts, " ")))
+	cmd.Env = env
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("colmena apply failed: %w", err)
