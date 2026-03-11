@@ -120,6 +120,22 @@ func (t *TerraformExecutor) Apply() error {
 	return nil
 }
 
+// Import runs terraform import to bring an existing resource into state
+func (t *TerraformExecutor) Import(address, id string) error {
+	cmd := exec.Command("terraform", "import", address, id)
+	cmd.Dir = t.workDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ()
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("terraform import failed: %w", err)
+	}
+
+	return nil
+}
+
 // Destroy runs terraform destroy
 func (t *TerraformExecutor) Destroy() error {
 	cmd := exec.Command("terraform", "destroy")
