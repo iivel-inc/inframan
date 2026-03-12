@@ -22,7 +22,8 @@ Commands:
   deploy  - Deploy NixOS configuration using Colmena
   destroy - Destroy infrastructure using Terraform
   ssh     - SSH to an instance by project name
-  import  - Import existing resources into Terraform state`,
+  import  - Import existing resources into Terraform state
+  output  - Show Terraform output values`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -37,4 +38,5 @@ func init() {
 	rootCmd.AddCommand(commands.NewDestroyCommand())
 	rootCmd.AddCommand(commands.NewSSHCommand())
 	rootCmd.AddCommand(commands.NewImportCommand())
+	rootCmd.AddCommand(commands.NewOutputCommand())
 }

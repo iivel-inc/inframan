@@ -120,6 +120,22 @@ func (t *TerraformExecutor) Apply() error {
 	return nil
 }
 
+// Output runs terraform output with any additional args passed through
+func (t *TerraformExecutor) Output(args ...string) error {
+	cmdArgs := append([]string{"output"}, args...)
+	cmd := exec.Command("terraform", cmdArgs...)
+	cmd.Dir = t.workDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("terraform output failed: %w", err)
+	}
+
+	return nil
+}
+
 // Import runs terraform import to bring an existing resource into state
 func (t *TerraformExecutor) Import(address, id string) error {
 	cmd := exec.Command("terraform", "import", address, id)
