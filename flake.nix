@@ -24,11 +24,13 @@
       #   - machineConfig: Path to the NixOS machine configuration
       #   - projectName: (Optional) Name for the project, used to organize .inframan/<projectName>/ folders
       #                  Defaults to "default" if not specified
+      #   - targetSystem: (Optional) The target machine's NixOS system architecture
+      #                   (e.g., "aarch64-linux"). Defaults to "x86_64-linux"
       #   - sshKeyPath: (Optional) Path to SSH private key for deployment and SSH access
       #                 Can be absolute path or relative to the project root
       #   - sshConfigPath: (Optional) Path to SSH config file for deployment and SSH access
       #                    Useful for multi-user setups where each user has different keys
-      lib.mkRunner = { system, infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null }:
+      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null }:
         let
           pkgs = import nixpkgs {
             config.allowUnfree = true;
@@ -66,6 +68,7 @@
             export INFRA_CONFIG_JSON="${terranixConfig}"
             export NIXOS_MODULE_PATH="${machineConfig}"
             export PROJECT_NAME="${projectName}"
+            export TARGET_SYSTEM="${targetSystem}"
             ${sshKeyExport}
             ${sshConfigExport}
 

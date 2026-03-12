@@ -24,6 +24,9 @@ const (
 
 	// DefaultProjectName is used when PROJECT_NAME is not set
 	DefaultProjectName = "default"
+
+	// DefaultTargetSystem is used when TARGET_SYSTEM is not set
+	DefaultTargetSystem = "x86_64-linux"
 )
 
 // GetProjectName returns the project name from environment or default
@@ -43,6 +46,15 @@ func GetSSHKeyPath() string {
 // GetSSHConfigPath returns the SSH config file path from environment, or empty string if not set
 func GetSSHConfigPath() string {
 	return os.Getenv("SSH_CONFIG_PATH")
+}
+
+// GetTargetSystem returns the target machine's NixOS system architecture from environment or default
+func GetTargetSystem() string {
+	ts := os.Getenv("TARGET_SYSTEM")
+	if ts == "" {
+		return DefaultTargetSystem
+	}
+	return ts
 }
 
 // GetInframanDir returns the absolute path to the .inframan directory

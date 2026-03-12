@@ -63,7 +63,7 @@ func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, err
 	nixPath := fmt.Sprintf("\"%s\"", absModulePath)
 	hiveContent := fmt.Sprintf(`{
   meta = {
-    nixpkgs = import <nixpkgs> { system = "x86_64-linux"; };
+    nixpkgs = import <nixpkgs> { system = "%s"; };
   };
 
   # Define the node
@@ -75,7 +75,7 @@ func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, err
     deployment.sshOptions = %s;
   };
 }
-`, nixPath, targetIP, sshOptsNix)
+`, GetTargetSystem(), nixPath, targetIP, sshOptsNix)
 
 	// Write to hive.nix
 	hivePath := filepath.Join(c.workDir, HiveFileName)
