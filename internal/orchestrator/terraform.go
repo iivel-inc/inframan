@@ -169,12 +169,17 @@ func (t *TerraformExecutor) Destroy() error {
 }
 
 // TerraformOutput represents the structure of terraform output -json
-// Supports both single instance (public_ip) and multiple instances (instances map)
+// Supports both single instance (public_ip/private_ip) and multiple instances (instances map)
 type TerraformOutput struct {
 	// Legacy single instance output
 	PublicIP struct {
 		Value string `json:"value"`
 	} `json:"public_ip"`
+
+	// Private IP for instances behind a bastion/proxy jump
+	PrivateIP struct {
+		Value string `json:"value"`
+	} `json:"private_ip"`
 
 	// Multiple named instances output: { "web-1": "1.2.3.4", "db-1": "5.6.7.8" }
 	Instances struct {
@@ -203,11 +208,18 @@ func (t *TerraformExecutor) GetTargetIP() (string, error) {
 		return "", fmt.Errorf("failed to parse terraform output: %w", err)
 	}
 
-	if terraformOutput.PublicIP.Value == "" {
-		return "", fmt.Errorf("public_ip not found in terraform output")
+	// When proxy jump is configured, prefer private_ip (target is behind bastion)
+	if GetSSHProxyJump() != "" {
+		if terraformOutput.PrivateIP.Value != "" {
+			return terraformOutput.PrivateIP.Value, nil
+		}
 	}
 
-	return terraformOutput.PublicIP.Value, nil
+	if terraformOutput.PublicIP.Value != "" {
+		return terraformOutput.PublicIP.Value, nil
+	}
+
+	return "", fmt.Errorf("no IP found in terraform output (expected 'public_ip' or 'private_ip' with proxy jump configured)")
 }
 
 // GetWorkDir returns the workdir path
@@ -275,17 +287,23 @@ func GetInstancesForProject(projectName string) ([]*InstanceInfo, error) {
 		return instances, nil
 	}
 
-	// Fall back to legacy single instance (public_ip)
-	if terraformOutput.PublicIP.Value != "" {
+	// Fall back to legacy single instance
+	// Prefer private_ip when proxy jump is configured (target is behind bastion)
+	ip := terraformOutput.PublicIP.Value
+	if GetSSHProxyJump() != "" && terraformOutput.PrivateIP.Value != "" {
+		ip = terraformOutput.PrivateIP.Value
+	}
+
+	if ip != "" {
 		instances = append(instances, &InstanceInfo{
 			ProjectName:  projectName,
 			InstanceName: "", // Empty for single instance
-			PublicIP:     terraformOutput.PublicIP.Value,
+			PublicIP:     ip,
 		})
 		return instances, nil
 	}
 
-	return nil, fmt.Errorf("no instances found in terraform output for project %q (expected 'instances' map or 'public_ip')", projectName)
+	return nil, fmt.Errorf("no instances found in terraform output for project %q (expected 'instances' map, 'public_ip', or 'private_ip' with proxy jump)", projectName)
 }
 
 // GetInstance retrieves a specific instance by project and optional instance name
