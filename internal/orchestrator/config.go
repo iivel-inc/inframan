@@ -48,6 +48,11 @@ func GetSSHConfigPath() string {
 	return os.Getenv("SSH_CONFIG_PATH")
 }
 
+// GetSSHProxyJump returns the SSH proxy jump host from environment, or empty string if not set
+func GetSSHProxyJump() string {
+	return os.Getenv("SSH_PROXY_JUMP")
+}
+
 // GetTargetSystem returns the target machine's NixOS system architecture from environment or default
 func GetTargetSystem() string {
 	ts := os.Getenv("TARGET_SYSTEM")

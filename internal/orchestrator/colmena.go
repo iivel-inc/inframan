@@ -49,6 +49,9 @@ func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, err
 	if sshKeyPath := GetSSHKeyPath(); sshKeyPath != "" {
 		sshOptions = append(sshOptions, "-i", sshKeyPath)
 	}
+	if proxyJump := GetSSHProxyJump(); proxyJump != "" {
+		sshOptions = append(sshOptions, "-J", proxyJump)
+	}
 	// Add convenience option for new hosts
 	sshOptions = append(sshOptions, "-o", "StrictHostKeyChecking=accept-new")
 
@@ -104,6 +107,9 @@ func (c *ColmenaExecutor) Apply(hivePath string) error {
 	}
 	if sshKeyPath := GetSSHKeyPath(); sshKeyPath != "" {
 		sshOpts = append(sshOpts, "-i", sshKeyPath)
+	}
+	if proxyJump := GetSSHProxyJump(); proxyJump != "" {
+		sshOpts = append(sshOpts, "-J", proxyJump)
 	}
 	sshOpts = append(sshOpts, "-o", "StrictHostKeyChecking=accept-new")
 	env = append(env, fmt.Sprintf("NIX_SSHOPTS=%s", strings.Join(sshOpts, " ")))

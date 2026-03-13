@@ -30,7 +30,9 @@
       #                 Can be absolute path or relative to the project root
       #   - sshConfigPath: (Optional) Path to SSH config file for deployment and SSH access
       #                    Useful for multi-user setups where each user has different keys
-      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null }:
+      #   - sshProxyJump: (Optional) SSH proxy jump host (e.g., "user@bastion:22") for reaching
+      #                   targets behind a bastion/jump host. Passed as ssh -J flag.
+      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null, sshProxyJump ? null }:
         let
           pkgs = import nixpkgs {
             config.allowUnfree = true;
@@ -55,6 +57,11 @@
           sshConfigExport = if sshConfigPath != null
             then ''export SSH_CONFIG_PATH="${sshConfigPath}"''
             else "";
+
+          # SSH proxy jump export line (only if sshProxyJump is provided)
+          sshProxyJumpExport = if sshProxyJump != null
+            then ''export SSH_PROXY_JUMP="${sshProxyJump}"''
+            else "";
         in
         pkgs.writeShellApplication {
           name = "runner";
@@ -71,6 +78,7 @@
             export TARGET_SYSTEM="${targetSystem}"
             ${sshKeyExport}
             ${sshConfigExport}
+            ${sshProxyJumpExport}
 
             # Run the inframan binary with all arguments
             exec ${inframanBin}/bin/inframan "$@"

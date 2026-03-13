@@ -127,6 +127,11 @@ func connectToInstance(target, user, identityFile string) error {
 		sshArgs = append(sshArgs, "-i", sshKeyPath)
 	}
 
+	// Add proxy jump if configured
+	if proxyJump := orchestrator.GetSSHProxyJump(); proxyJump != "" {
+		sshArgs = append(sshArgs, "-J", proxyJump)
+	}
+
 	// Add common SSH options for convenience (only if not using custom config)
 	if orchestrator.GetSSHConfigPath() == "" {
 		sshArgs = append(sshArgs,
