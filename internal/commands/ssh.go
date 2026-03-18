@@ -40,8 +40,15 @@ Examples:
   inframan ssh account1 --user nixos
 
   # Connect with a specific identity file
-  inframan ssh account1 --identity ~/.ssh/id_ed25519`,
-		Args: cobra.MaximumNArgs(1),
+  inframan ssh account1 --identity ~/.ssh/id_ed25519
+
+  # Run a remote command
+  inframan ssh account1 -- hostname
+  inframan ssh account1 -- cat /etc/os-release
+
+  # Pipe input to a remote command
+  echo "hello" | inframan ssh account1 -- cat`,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle --list flag
 			if listInstances {
@@ -54,7 +61,11 @@ Examples:
 			}
 
 			target := args[0]
-			return connectToInstance(target, user, identityFile)
+			var remoteCmd []string
+			if len(args) > 1 {
+				remoteCmd = args[1:]
+			}
+			return connectToInstance(target, user, identityFile, remoteCmd)
 		},
 	}
 
@@ -101,7 +112,7 @@ func parseTarget(target string) (projectName, instanceName string) {
 }
 
 // connectToInstance establishes an SSH connection to the specified instance
-func connectToInstance(target, user, identityFile string) error {
+func connectToInstance(target, user, identityFile string, remoteCmd []string) error {
 	// Parse target into project and instance name
 	projectName, instanceName := parseTarget(target)
 
@@ -144,6 +155,11 @@ func connectToInstance(target, user, identityFile string) error {
 	// Add target
 	sshTarget := fmt.Sprintf("%s@%s", user, info.PublicIP)
 	sshArgs = append(sshArgs, sshTarget)
+
+	// Add remote command if specified
+	if len(remoteCmd) > 0 {
+		sshArgs = append(sshArgs, remoteCmd...)
+	}
 
 	// Find ssh binary
 	sshPath, err := exec.LookPath("ssh")
