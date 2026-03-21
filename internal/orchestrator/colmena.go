@@ -74,11 +74,11 @@ func (c *ColmenaExecutor) GenerateHive(modulePath, targetIP string) (string, err
     imports = [ (import %s) ]; # Import the user's module
     deployment.targetHost = "%s"; # Injected IP
     deployment.targetUser = "root";
-    deployment.buildOnTarget = true; # Build on remote instance, not locally
+    deployment.buildOnTarget = %t; # Build on remote instance or locally
     deployment.sshOptions = %s;
   };
 }
-`, GetTargetSystem(), nixPath, targetIP, sshOptsNix)
+`, GetTargetSystem(), nixPath, targetIP, GetBuildOnTarget(), sshOptsNix)
 
 	// Write to hive.nix
 	hivePath := filepath.Join(c.workDir, HiveFileName)

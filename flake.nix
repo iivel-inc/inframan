@@ -32,7 +32,9 @@
       #                    Useful for multi-user setups where each user has different keys
       #   - sshProxyJump: (Optional) SSH proxy jump host (e.g., "user@bastion:22") for reaching
       #                   targets behind a bastion/jump host. Passed as ssh -J flag.
-      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null, sshProxyJump ? null }:
+      #   - buildOnTarget: (Optional) Whether to build NixOS configurations on the remote target.
+      #                    Defaults to true. Set to false to build locally and copy the closure.
+      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null, sshProxyJump ? null, buildOnTarget ? true }:
         let
           pkgs = import nixpkgs {
             config.allowUnfree = true;
@@ -62,6 +64,11 @@
           sshProxyJumpExport = if sshProxyJump != null
             then ''export SSH_PROXY_JUMP="${sshProxyJump}"''
             else "";
+
+          # Build on target export line
+          buildOnTargetExport = if buildOnTarget
+            then ''export BUILD_ON_TARGET="true"''
+            else ''export BUILD_ON_TARGET="false"'';
         in
         pkgs.writeShellApplication {
           name = "runner";
@@ -79,6 +86,7 @@
             ${sshKeyExport}
             ${sshConfigExport}
             ${sshProxyJumpExport}
+            ${buildOnTargetExport}
 
             # Run the inframan binary with all arguments
             exec ${inframanBin}/bin/inframan "$@"

@@ -53,6 +53,16 @@ func GetSSHProxyJump() string {
 	return os.Getenv("SSH_PROXY_JUMP")
 }
 
+// GetBuildOnTarget returns whether colmena should build on the remote target.
+// Defaults to true if not set.
+func GetBuildOnTarget() bool {
+	v := os.Getenv("BUILD_ON_TARGET")
+	if v == "false" || v == "0" {
+		return false
+	}
+	return true
+}
+
 // GetTargetSystem returns the target machine's NixOS system architecture from environment or default
 func GetTargetSystem() string {
 	ts := os.Getenv("TARGET_SYSTEM")
