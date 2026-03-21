@@ -30,6 +30,19 @@ func NewDeployCommand() *cobra.Command {
 				return fmt.Errorf("NIXOS_MODULE_PATH file does not exist: %s", nixosModulePath)
 			}
 
+			// Copy Terranix config to workspace (needed for terraform init with remote backends)
+			infraConfigJSON := os.Getenv("INFRA_CONFIG_JSON")
+			if infraConfigJSON == "" {
+				return fmt.Errorf("INFRA_CONFIG_JSON environment variable is not set")
+			}
+			terranixExec, err := orchestrator.NewTerranixExecutor()
+			if err != nil {
+				return fmt.Errorf("failed to create terranix executor: %w", err)
+			}
+			if _, err := terranixExec.BuildFromConfig(infraConfigJSON); err != nil {
+				return fmt.Errorf("failed to setup terraform workspace: %w", err)
+			}
+
 			// Create terraform executor to get output
 			terraformExec, err := orchestrator.NewTerraformExecutor()
 			if err != nil {
