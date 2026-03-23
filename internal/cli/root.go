@@ -18,6 +18,7 @@ Environment Variables:
   PROJECT_NAME       - Project name for organizing .inframan/<project>/ folders (default: "default")
 
 Commands:
+  init    - Initialize terraform workspace and pull remote state
   infra   - Build and apply infrastructure using Terraform
   deploy  - Deploy NixOS configuration using Colmena
   destroy - Destroy infrastructure using Terraform
@@ -33,6 +34,7 @@ func Execute() error {
 
 func init() {
 	// Add subcommands
+	rootCmd.AddCommand(commands.NewInitCommand())
 	rootCmd.AddCommand(commands.NewInfraCommand())
 	rootCmd.AddCommand(commands.NewDeployCommand())
 	rootCmd.AddCommand(commands.NewDestroyCommand())
