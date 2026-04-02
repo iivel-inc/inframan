@@ -208,8 +208,8 @@ func (t *TerraformExecutor) GetTargetIP() (string, error) {
 		return "", fmt.Errorf("failed to parse terraform output: %w", err)
 	}
 
-	// When proxy jump is configured, prefer private_ip (target is behind bastion)
-	if GetSSHProxyJump() != "" {
+	// Prefer private_ip when explicitly requested or when proxy jump is configured
+	if GetUsePrivateIP() || GetSSHProxyJump() != "" {
 		if terraformOutput.PrivateIP.Value != "" {
 			return terraformOutput.PrivateIP.Value, nil
 		}
@@ -219,7 +219,7 @@ func (t *TerraformExecutor) GetTargetIP() (string, error) {
 		return terraformOutput.PublicIP.Value, nil
 	}
 
-	return "", fmt.Errorf("no IP found in terraform output (expected 'public_ip' or 'private_ip' with proxy jump configured)")
+	return "", fmt.Errorf("no IP found in terraform output (expected 'public_ip' or 'private_ip' with USE_PRIVATE_IP or proxy jump configured)")
 }
 
 // GetWorkDir returns the workdir path

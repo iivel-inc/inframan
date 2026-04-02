@@ -34,7 +34,10 @@
       #                   targets behind a bastion/jump host. Passed as ssh -J flag.
       #   - buildOnTarget: (Optional) Whether to build NixOS configurations on the remote target.
       #                    Defaults to true. Set to false to build locally and copy the closure.
-      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null, sshProxyJump ? null, buildOnTarget ? true }:
+      #   - usePrivateIp: (Optional) Whether to prefer private_ip from terraform output for
+      #                   target connections. Defaults to false. Useful when deploying to targets
+      #                   reachable via private network (e.g., VPN, VPC peering) without a proxy jump.
+      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null, sshProxyJump ? null, buildOnTarget ? true, usePrivateIp ? false }:
         let
           pkgs = import nixpkgs {
             config.allowUnfree = true;
@@ -65,6 +68,11 @@
             then ''export SSH_PROXY_JUMP="${sshProxyJump}"''
             else "";
 
+          # Use private IP export line (only if usePrivateIp is true)
+          usePrivateIpExport = if usePrivateIp
+            then ''export USE_PRIVATE_IP="true"''
+            else "";
+
           # Build on target export line
           buildOnTargetExport = if buildOnTarget
             then ''export BUILD_ON_TARGET="true"''
@@ -86,6 +94,7 @@
             ${sshKeyExport}
             ${sshConfigExport}
             ${sshProxyJumpExport}
+            ${usePrivateIpExport}
             ${buildOnTargetExport}
 
             # Run the inframan binary with all arguments
