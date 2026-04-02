@@ -53,6 +53,13 @@ func GetSSHProxyJump() string {
 	return os.Getenv("SSH_PROXY_JUMP")
 }
 
+// GetUsePrivateIP returns whether to prefer private_ip for target connections.
+// Defaults to false if not set.
+func GetUsePrivateIP() bool {
+	v := os.Getenv("USE_PRIVATE_IP")
+	return v == "true" || v == "1"
+}
+
 // GetBuildOnTarget returns whether colmena should build on the remote target.
 // Defaults to true if not set.
 func GetBuildOnTarget() bool {
