@@ -103,9 +103,14 @@ func ensureInitInDir(terraformDir string) error {
 	return nil
 }
 
-// Apply runs terraform apply
-func (t *TerraformExecutor) Apply() error {
-	cmd := exec.Command("terraform", "apply")
+// Apply runs terraform apply. If autoApprove is true, passes -auto-approve
+// to skip the interactive confirmation (useful for CI).
+func (t *TerraformExecutor) Apply(autoApprove bool) error {
+	args := []string{"apply"}
+	if autoApprove {
+		args = append(args, "-auto-approve")
+	}
+	cmd := exec.Command("terraform", args...)
 	cmd.Dir = t.workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -152,9 +157,14 @@ func (t *TerraformExecutor) Import(address, id string) error {
 	return nil
 }
 
-// Destroy runs terraform destroy
-func (t *TerraformExecutor) Destroy() error {
-	cmd := exec.Command("terraform", "destroy")
+// Destroy runs terraform destroy. If autoApprove is true, passes -auto-approve
+// to skip the interactive confirmation (useful for CI).
+func (t *TerraformExecutor) Destroy(autoApprove bool) error {
+	args := []string{"destroy"}
+	if autoApprove {
+		args = append(args, "-auto-approve")
+	}
+	cmd := exec.Command("terraform", args...)
 	cmd.Dir = t.workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

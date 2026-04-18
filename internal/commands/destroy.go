@@ -9,6 +9,8 @@ import (
 
 // NewDestroyCommand creates the destroy command
 func NewDestroyCommand() *cobra.Command {
+	var autoApprove bool
+
 	cmd := &cobra.Command{
 		Use:   "destroy",
 		Short: "Destroy infrastructure using Terraform",
@@ -18,7 +20,10 @@ func NewDestroyCommand() *cobra.Command {
 3. Passes through AWS credentials from environment
 
 This is the reverse of 'inframan infra' and will destroy all resources
-that were created during infrastructure provisioning.`,
+that were created during infrastructure provisioning.
+
+Use --auto-approve (-y) to skip the interactive approval prompt
+(typically required in CI environments).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Create terraform executor
 			terraformExec, err := orchestrator.NewTerraformExecutor()
@@ -33,7 +38,7 @@ that were created during infrastructure provisioning.`,
 
 			// Run terraform destroy
 			fmt.Println("Destroying infrastructure...")
-			if err := terraformExec.Destroy(); err != nil {
+			if err := terraformExec.Destroy(autoApprove); err != nil {
 				return fmt.Errorf("terraform destroy failed: %w", err)
 			}
 
@@ -41,6 +46,8 @@ that were created during infrastructure provisioning.`,
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&autoApprove, "auto-approve", "y", false, "Skip interactive approval of terraform destroy")
 
 	return cmd
 }
