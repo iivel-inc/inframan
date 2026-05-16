@@ -46,6 +46,7 @@ These are set by `lib.mkRunner` and read by the Go binary:
 | `PROJECT_NAME` | mkRunner | `"default"` | all | Project name for directory isolation |
 | `TARGET_SYSTEM` | mkRunner | `"x86_64-linux"` | deploy | Target architecture in generated `hive.nix` |
 | `SSH_KEY_PATH` | mkRunner | (empty) | deploy, ssh | SSH private key path |
+| `TF_VAR_ssh_public_key` | mkRunner (via `sshPublicKeyPath`) | (empty) | infra, destroy | SSH public key contents, passed to Terraform |
 | `SSH_CONFIG_PATH` | mkRunner | (empty) | deploy, ssh | SSH config file path |
 | `SSH_PROXY_JUMP` | mkRunner | (empty) | deploy, ssh | Bastion/jump host for SSH |
 | `USE_PRIVATE_IP` | mkRunner | `"false"` | deploy, ssh | `"true"` or `"1"` to prefer private IP |
@@ -61,18 +62,24 @@ These are NOT set by mkRunner and must be provided by the user:
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials (alternative to `terraform.tfvars`) |
 | `TF_VAR_*` | Terraform variables passed via environment |
 
-### Auto-Derived Terraform Variables
+### Passing the SSH Public Key to Terraform
 
-`infra` and `destroy` automatically set `TF_VAR_ssh_public_key` from `${SSH_KEY_PATH}.pub` when that file exists and the variable is not already set. This lets a committed `.pub` file satisfy a Terranix `variable.ssh_public_key` declaration in CI without `terraform.tfvars`.
+Terranix configs typically declare a `variable.ssh_public_key` (see [Infrastructure Templates](infrastructure-templates.md)). In CI that variable has no value source unless one is supplied — `terraform apply` then errors with `No value for required variable`.
 
-Because Nix only copies files explicitly referenced into the store, the `.pub` file must live alongside the private key in an imported directory. Reference the directory so Nix imports both files together:
+Set the `sshPublicKeyPath` argument on `lib.mkRunner` to a public key file. The runner reads the file at runtime and exports its contents as `TF_VAR_ssh_public_key`:
 
 ```nix
 # In your consumer flake.nix
-sshKeyPath = "${./keys}/id_inframan";   # imports ./keys/, so .pub is available too
+runner = inframan.lib.mkRunner {
+  inherit system;
+  infraConfig = ./infrastructure.nix;
+  machineConfig = ./machine.nix;
+  sshKeyPath = ./keys/id_inframan;          # private key (deploy, ssh)
+  sshPublicKeyPath = ./keys/id_inframan.pub; # public key (terraform apply)
+};
 ```
 
-Set `TF_VAR_ssh_public_key` explicitly to override the auto-derived value.
+`sshKeyPath` and `sshPublicKeyPath` are independent — the public key can be committed to the repo while the private key is materialized from a CI secret at runtime. Setting `TF_VAR_ssh_public_key` directly in the environment overrides anything `mkRunner` exports.
 
 ## AWS Credential Setup
 

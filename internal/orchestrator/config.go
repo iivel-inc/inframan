@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 const (
@@ -47,38 +46,6 @@ func GetSSHKeyPath() string {
 // GetSSHConfigPath returns the SSH config file path from environment, or empty string if not set
 func GetSSHConfigPath() string {
 	return os.Getenv("SSH_CONFIG_PATH")
-}
-
-// ApplySSHPublicKeyTFVar sets TF_VAR_ssh_public_key from "${SSH_KEY_PATH}.pub"
-// when it exists, so Terranix configs that declare a ssh_public_key variable
-// receive a value automatically. No-op when TF_VAR_ssh_public_key is already
-// set, SSH_KEY_PATH is unset, or the .pub file is missing.
-func ApplySSHPublicKeyTFVar() error {
-	const tfVar = "TF_VAR_ssh_public_key"
-	if os.Getenv(tfVar) != "" {
-		return nil
-	}
-	keyPath := GetSSHKeyPath()
-	if keyPath == "" {
-		return nil
-	}
-	pubPath := keyPath + ".pub"
-	data, err := os.ReadFile(pubPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to read SSH public key at %s: %w", pubPath, err)
-	}
-	pubKey := strings.TrimSpace(string(data))
-	if pubKey == "" {
-		return nil
-	}
-	if err := os.Setenv(tfVar, pubKey); err != nil {
-		return fmt.Errorf("failed to set %s: %w", tfVar, err)
-	}
-	fmt.Printf("Using SSH public key from %s\n", pubPath)
-	return nil
 }
 
 // GetSSHProxyJump returns the SSH proxy jump host from environment, or empty string if not set

@@ -28,6 +28,10 @@
       #                   (e.g., "aarch64-linux"). Defaults to "x86_64-linux"
       #   - sshKeyPath: (Optional) Path to SSH private key for deployment and SSH access
       #                 Can be absolute path or relative to the project root
+      #   - sshPublicKeyPath: (Optional) Path to an SSH public key file. When set, the
+      #                       runner exports its contents as TF_VAR_ssh_public_key so
+      #                       Terranix configs that declare a `ssh_public_key` variable
+      #                       receive a value (avoids a `terraform.tfvars` file in CI).
       #   - sshConfigPath: (Optional) Path to SSH config file for deployment and SSH access
       #                    Useful for multi-user setups where each user has different keys
       #   - sshProxyJump: (Optional) SSH proxy jump host (e.g., "user@bastion:22") for reaching
@@ -37,7 +41,7 @@
       #   - usePrivateIp: (Optional) Whether to prefer private_ip from terraform output for
       #                   target connections. Defaults to false. Useful when deploying to targets
       #                   reachable via private network (e.g., VPN, VPC peering) without a proxy jump.
-      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshConfigPath ? null, sshProxyJump ? null, buildOnTarget ? true, usePrivateIp ? false }:
+      lib.mkRunner = { system, targetSystem ? "x86_64-linux", infraConfig, machineConfig, projectName ? "default", sshKeyPath ? null, sshPublicKeyPath ? null, sshConfigPath ? null, sshProxyJump ? null, buildOnTarget ? true, usePrivateIp ? false }:
         let
           pkgs = import nixpkgs {
             config.allowUnfree = true;
@@ -56,6 +60,12 @@
           # SSH key export line (only if sshKeyPath is provided)
           sshKeyExport = if sshKeyPath != null
             then ''export SSH_KEY_PATH="${sshKeyPath}"''
+            else "";
+
+          # SSH public key export line (only if sshPublicKeyPath is provided).
+          # Read at runtime so Nix doesn't need the file at evaluation time.
+          sshPublicKeyExport = if sshPublicKeyPath != null
+            then ''export TF_VAR_ssh_public_key="$(cat ${sshPublicKeyPath})"''
             else "";
 
           # SSH config export line (only if sshConfigPath is provided)
@@ -92,6 +102,7 @@
             export PROJECT_NAME="${projectName}"
             export TARGET_SYSTEM="${targetSystem}"
             ${sshKeyExport}
+            ${sshPublicKeyExport}
             ${sshConfigExport}
             ${sshProxyJumpExport}
             ${usePrivateIpExport}
