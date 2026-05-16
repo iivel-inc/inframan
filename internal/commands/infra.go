@@ -47,6 +47,11 @@ Use --auto-approve (-y) to skip the interactive approval prompt
 				return fmt.Errorf("failed to setup workdir: %w", err)
 			}
 
+			// Auto-populate TF_VAR_ssh_public_key from "${SSH_KEY_PATH}.pub" when present
+			if err := orchestrator.ApplySSHPublicKeyTFVar(); err != nil {
+				return err
+			}
+
 			// Create terraform executor
 			terraformExec, err := orchestrator.NewTerraformExecutor()
 			if err != nil {

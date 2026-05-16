@@ -61,6 +61,19 @@ These are NOT set by mkRunner and must be provided by the user:
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials (alternative to `terraform.tfvars`) |
 | `TF_VAR_*` | Terraform variables passed via environment |
 
+### Auto-Derived Terraform Variables
+
+`infra` and `destroy` automatically set `TF_VAR_ssh_public_key` from `${SSH_KEY_PATH}.pub` when that file exists and the variable is not already set. This lets a committed `.pub` file satisfy a Terranix `variable.ssh_public_key` declaration in CI without `terraform.tfvars`.
+
+Because Nix only copies files explicitly referenced into the store, the `.pub` file must live alongside the private key in an imported directory. Reference the directory so Nix imports both files together:
+
+```nix
+# In your consumer flake.nix
+sshKeyPath = "${./keys}/id_inframan";   # imports ./keys/, so .pub is available too
+```
+
+Set `TF_VAR_ssh_public_key` explicitly to override the auto-derived value.
+
 ## AWS Credential Setup
 
 Inframan passes the full environment to Terraform, so any standard credential method works:

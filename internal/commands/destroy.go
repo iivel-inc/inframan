@@ -25,6 +25,11 @@ that were created during infrastructure provisioning.
 Use --auto-approve (-y) to skip the interactive approval prompt
 (typically required in CI environments).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Auto-populate TF_VAR_ssh_public_key from "${SSH_KEY_PATH}.pub" when present
+			if err := orchestrator.ApplySSHPublicKeyTFVar(); err != nil {
+				return err
+			}
+
 			// Create terraform executor
 			terraformExec, err := orchestrator.NewTerraformExecutor()
 			if err != nil {
